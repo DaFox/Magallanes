@@ -28,12 +28,12 @@ class PreBuiltTarGzTask extends AbstractTask implements IsReleaseAware
     {
         if ($this->getConfig()->release('enabled', false) == true) {
             if ($this->getConfig()->getParameter('overrideRelease', false) == true) {
-                return 'Deploy via TarGz (with Releases override) [built-in]';
+                return 'Deploy via pre-built TarGz (with Releases override) [built-in]';
             } else {
-                return 'Deploy via TarGz (with Releases) [built-in]';
+                return 'Deploy via pre-built TarGz (with Releases) [built-in]';
             }
         } else {
-                return 'Deploy via TarGz [built-in]';
+                return 'Deploy via pre-built TarGz [built-in]';
         }
     }
 

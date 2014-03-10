@@ -264,6 +264,7 @@ class DeployCommand extends AbstractCommand implements RequiresEnvironment
     }
 
     public function runHostDeploymentTask($hostKey, $host) {
+
         // Check if Host has specific configuration
         $hostConfig = null;
         if (is_array($host)) {
@@ -278,8 +279,6 @@ class DeployCommand extends AbstractCommand implements RequiresEnvironment
         // Prepare Tasks
         $tasks = 0;
         $completedTasks = 0;
-
-
 
         $tasksToRun = $this->getConfig()->getTasks();
 
@@ -360,16 +359,24 @@ class DeployCommand extends AbstractCommand implements RequiresEnvironment
     		$this->startTimeHosts = time();
             $completedTasks = 0;
 
-            Console::output('Deploying to <dark_gray>' . implode(', ', $hosts) . '</dark_gray>');
+
 
             $threads = array();
     		foreach ($hosts as $hostKey => $host) {
-                $threads = SimpleThread::create(array($this, 'runHostDeploymentTask'))->run($hostKey, $host)->getId();
-    			#$this->runHostDeploymentTask($hostKey, $host);
+                $thread = SimpleThread::create(array($this, 'runHostDeploymentTask'))->run($hostKey, $host);
+                $threads[$thread->getId()] = $thread;
+
+                Console::output('Started worker #' .$thread->getId(). ' for host <dark_gray>' . $host . '</dark_gray>');
     		}
 
-            Thread::waitThreads($threads);
-            Console::output("DONE");
+            Console::output("", 0, 1);
+
+            foreach($threads as $thread) {
+                /** @var Thread $thread */
+                $thread->wait();
+            }
+
+            Thread::cleanAll();
     		$this->endTimeHosts = time();
 
     		if (self::$failedTasks > 0) {
@@ -464,7 +471,6 @@ class DeployCommand extends AbstractCommand implements RequiresEnvironment
         if ($title == null) {
             $title = 'Running <purple>' . $task->getName() . '</purple> ... ';
         }
-        Console::output($title, 2, 1);
 
         $runTask = true;
         if (($task instanceOf SkipOnOverride) && $this->getConfig()->getParameter('overrideRelease', false)) {
@@ -476,27 +482,27 @@ class DeployCommand extends AbstractCommand implements RequiresEnvironment
                 $result = $task->run();
 
                 if ($result == true) {
-                    Console::output('<green>OK</green>', 0);
+                    Console::output($title . ' <green>OK</green>', 2);
                     $result = true;
 
                 } else {
-                    Console::output('<red>FAIL</red>', 0);
+                    Console::output($title . ' <red>FAIL</red>', 2);
                     $result = false;
                 }
             } catch (ErrorWithMessageException $e) {
-            	Console::output('<red>FAIL</red> [Message: ' . $e->getMessage() . ']', 0);
+            	Console::output($title . ' <red>FAIL</red> [Message: ' . $e->getMessage() . ']', 2);
             	$result = false;
 
             } catch (SkipException $e) {
-                Console::output('<yellow>SKIPPED</yellow>', 0);
+                Console::output($title . ' <yellow>SKIPPED</yellow>', 20);
                 $result = true;
 
             } catch (Exception $e) {
-                Console::output('<red>FAIL</red>', 0);
+                Console::output($title . ' <red>FAIL</red>', 2);
                 $result = false;
             }
         } else {
-            Console::output('<yellow>SKIPPED</yellow>', 0);
+            Console::output($title . ' <yellow>SKIPPED</yellow>', 2);
             $result = true;
         }
 
