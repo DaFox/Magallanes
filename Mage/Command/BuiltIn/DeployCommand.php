@@ -10,6 +10,9 @@
 
 namespace Mage\Command\BuiltIn;
 
+use Aza\Components\Thread\SimpleThread;
+
+use Aza\Components\Thread\Thread;
 use Mage\Command\AbstractCommand;
 use Mage\Command\RequiresEnvironment;
 use Mage\Task\Factory;
@@ -260,6 +263,85 @@ class DeployCommand extends AbstractCommand implements RequiresEnvironment
         }
     }
 
+    public function runHostDeploymentTask($hostKey, $host) {
+        // Check if Host has specific configuration
+        $hostConfig = null;
+        if (is_array($host)) {
+            $hostConfig = $host;
+            $host = $hostKey;
+        }
+
+        // Set Host and Host Specific Config
+        $this->getConfig()->setHost($host);
+        $this->getConfig()->setHostConfig($hostConfig);
+
+        // Prepare Tasks
+        $tasks = 0;
+        $completedTasks = 0;
+
+
+
+        $tasksToRun = $this->getConfig()->getTasks();
+
+        // Guess a Deploy Strategy
+        switch ($this->getConfig()->deployment('strategy', 'guess')) {
+            case 'disabled':
+                $deployStrategy = 'deployment/strategy/disabled';
+                break;
+
+            case 'rsync':
+                $deployStrategy = 'deployment/strategy/rsync';
+                break;
+
+            case 'targz':
+                $deployStrategy = 'deployment/strategy/tar-gz';
+                break;
+
+            case 'prebuilttargz':
+                $deployStrategy = 'deployment/strategy/pre-built-tar-gz';
+                break;
+
+            case 'guess':
+            default:
+                if ($this->getConfig()->release('enabled', false) == true) {
+                    $deployStrategy = 'deployment/strategy/tar-gz';
+                } else {
+                    $deployStrategy = 'deployment/strategy/rsync';
+                }
+                break;
+        }
+
+        array_unshift($tasksToRun, $deployStrategy);
+
+        if (count($tasksToRun) == 0) {
+            Console::output('<light_purple>Warning!</light_purple> <dark_gray>No </dark_gray><light_cyan>Deployment</light_cyan> <dark_gray>tasks defined.</dark_gray>', 2);
+            Console::output('Deployment to <dark_gray>' . $host . '</dark_gray> skipped!', 1, 3);
+
+        } else {
+            foreach ($tasksToRun as $taskData) {
+                $tasks++;
+                $task = Factory::get($taskData, $this->getConfig(), false, AbstractTask::STAGE_DEPLOY);
+
+                if ($this->runTask($task)) {
+                    $completedTasks++;
+                } else {
+                    self::$failedTasks++;
+                }
+            }
+
+            if ($completedTasks == $tasks) {
+                $tasksColor = 'green';
+            } else {
+                $tasksColor = 'red';
+            }
+
+            Console::output('Deployment to <dark_gray>' . $this->getConfig()->getHost() . '</dark_gray> completed: <' . $tasksColor . '>' . $completedTasks . '/' . $tasks . '</' . $tasksColor . '> tasks done.', 1, 3);
+        }
+
+        // Reset Host Config
+        $this->getConfig()->setHostConfig(null);
+    }
+
     protected function runDeploymentTasks()
     {
     	if (self::$deployStatus == self::FAILED) {
@@ -276,81 +358,18 @@ class DeployCommand extends AbstractCommand implements RequiresEnvironment
 
     	} else {
     		$this->startTimeHosts = time();
+            $completedTasks = 0;
+
+            Console::output('Deploying to <dark_gray>' . implode(', ', $hosts) . '</dark_gray>');
+
+            $threads = array();
     		foreach ($hosts as $hostKey => $host) {
-
-    			// Check if Host has specific configuration
-    			$hostConfig = null;
-    			if (is_array($host)) {
-    				$hostConfig = $host;
-    				$host = $hostKey;
-    			}
-
-    			// Set Host and Host Specific Config
-    			$this->getConfig()->setHost($host);
-    			$this->getConfig()->setHostConfig($hostConfig);
-
-    			// Prepare Tasks
-    			$tasks = 0;
-    			$completedTasks = 0;
-
-    			Console::output('Deploying to <dark_gray>' . $this->getConfig()->getHost() . '</dark_gray>');
-
-    			$tasksToRun = $this->getConfig()->getTasks();
-
-    			// Guess a Deploy Strategy
-    			switch ($this->getConfig()->deployment('strategy', 'guess')) {
-    			    case 'disabled':
-    			    	$deployStrategy = 'deployment/strategy/disabled';
-    			    	break;
-
-    			    case 'rsync':
-    			    	$deployStrategy = 'deployment/strategy/rsync';
-    			    	break;
-
-    			    case 'targz':
-    			    	$deployStrategy = 'deployment/strategy/tar-gz';
-    			    	break;
-
-    			    case 'guess':
-    			    default:
-    			    	if ($this->getConfig()->release('enabled', false) == true) {
-    			    		$deployStrategy = 'deployment/strategy/tar-gz';
-    			    	} else {
-    			    		$deployStrategy = 'deployment/strategy/rsync';
-    			    	}
-    			    	break;
-    			}
-
-				array_unshift($tasksToRun, $deployStrategy);
-
-    			if (count($tasksToRun) == 0) {
-    				Console::output('<light_purple>Warning!</light_purple> <dark_gray>No </dark_gray><light_cyan>Deployment</light_cyan> <dark_gray>tasks defined.</dark_gray>', 2);
-    				Console::output('Deployment to <dark_gray>' . $host . '</dark_gray> skipped!', 1, 3);
-
-    			} else {
-    				foreach ($tasksToRun as $taskData) {
-    					$tasks++;
-    					$task = Factory::get($taskData, $this->getConfig(), false, AbstractTask::STAGE_DEPLOY);
-
-    					if ($this->runTask($task)) {
-    						$completedTasks++;
-    					} else {
-    						self::$failedTasks++;
-    					}
-    				}
-
-    				if ($completedTasks == $tasks) {
-    					$tasksColor = 'green';
-    				} else {
-    					$tasksColor = 'red';
-    				}
-
-    				Console::output('Deployment to <dark_gray>' . $this->getConfig()->getHost() . '</dark_gray> completed: <' . $tasksColor . '>' . $completedTasks . '/' . $tasks . '</' . $tasksColor . '> tasks done.', 1, 3);
-    			}
-
-    			// Reset Host Config
-    			$this->getConfig()->setHostConfig(null);
+                $threads = SimpleThread::create(array($this, 'runHostDeploymentTask'))->run($hostKey, $host)->getId();
+    			#$this->runHostDeploymentTask($hostKey, $host);
     		}
+
+            Thread::waitThreads($threads);
+            Console::output("DONE");
     		$this->endTimeHosts = time();
 
     		if (self::$failedTasks > 0) {
@@ -434,7 +453,7 @@ class DeployCommand extends AbstractCommand implements RequiresEnvironment
     /**
      * Runs a Task
      *
-     * @param string $task
+     * @param AbstractTask $task
      * @param string $title
      * @return boolean
      */
@@ -445,14 +464,13 @@ class DeployCommand extends AbstractCommand implements RequiresEnvironment
         if ($title == null) {
             $title = 'Running <purple>' . $task->getName() . '</purple> ... ';
         }
-        Console::output($title, 2, 0);
+        Console::output($title, 2, 1);
 
         $runTask = true;
         if (($task instanceOf SkipOnOverride) && $this->getConfig()->getParameter('overrideRelease', false)) {
-            $runTask == false;
+            $runTask = false;
         }
 
-        $result = false;
         if ($runTask == true) {
             try {
                 $result = $task->run();
@@ -534,6 +552,8 @@ class DeployCommand extends AbstractCommand implements RequiresEnvironment
                ->setLogFile(Console::getLogFile())
                ->setEnvironment($this->getConfig()->getEnvironment())
                ->send($result);
+
+        return true;
     }
 
 }

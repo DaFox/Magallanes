@@ -6,7 +6,8 @@
     "type": "library",
     "keywords": ["deployment"],
     "require": {
-        "php": ">=5.3"
+        "php": ">=5.3",
+        "aza/thread": "~1.0"
     },
     "bin": [
         "bin/mage"
