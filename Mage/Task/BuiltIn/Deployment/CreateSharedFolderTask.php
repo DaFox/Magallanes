@@ -39,7 +39,7 @@ class CreateSharedFolderTask extends AbstractTask
     {
         $defaults = array(
             'directory' => 'shared',
-            'symlink' => false
+            'symlink' => array()
         );
 
         $config = $this->getConfig()->release('shared', array());
@@ -47,7 +47,7 @@ class CreateSharedFolderTask extends AbstractTask
         if(is_string($config)) {
             $config = array(
                 'directory' => $config,
-                'symlink' => false
+                'symlink' => array()
             );
         }
 
