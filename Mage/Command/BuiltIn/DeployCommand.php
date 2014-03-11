@@ -348,6 +348,28 @@ class DeployCommand extends AbstractCommand implements RequiresEnvironment
 		return array('failed' => $failedTasks, 'completed' => $completedTasks);
     }
 
+    public function runHostReleaseTask($hostKey, $host) {
+        // Check if Host has specific configuration
+        $hostConfig = null;
+        if (is_array($host)) {
+            $hostConfig = $host;
+            $host = $hostKey;
+        }
+
+        // Set Host
+        $this->getConfig()->setHost($host);
+        $this->getConfig()->setHostConfig($hostConfig);
+
+        $task = Factory::get('deployment/release', $this->getConfig(), false, AbstractTask::STAGE_DEPLOY);
+
+        if ($this->runTask($task, 'Releasing on host <purple>' . $host . '</purple> ... ')) {
+
+        }
+
+        // Reset Host Config
+        $this->getConfig()->setHostConfig(null);
+    }
+
     protected function runDeploymentTasks()
     {
     	if (self::$deployStatus == self::FAILED) {
@@ -364,9 +386,6 @@ class DeployCommand extends AbstractCommand implements RequiresEnvironment
 
     	} else {
     		$this->startTimeHosts = time();
-            $completedTasks = 0;
-
-
 
             $threads = array();
     		foreach ($hosts as $hostKey => $host) {
@@ -385,17 +404,10 @@ class DeployCommand extends AbstractCommand implements RequiresEnvironment
             foreach($threads as $thread) {
                 /** @var Thread $thread */
                 $thread->wait();
-				Console::output('Stopped worker <purple>#' .$thread->getId(). '</purple>', 1, 1);
+				#Console::output('Stopped worker <purple>#' .$thread->getId(). '</purple>', 1, 1);
 				
 				$result = $thread->getResult();
 				self::$failedTasks += $result['failed'];
-            }
-
-            try {
-                Thread::cleanAll();
-            }
-            catch(Exception $ex) {
-                Console::output("<red>Unable to clean-up threads. Reason: {$ex->getMessage()}.</red>");
             }
 
     		$this->endTimeHosts = time();
@@ -410,28 +422,20 @@ class DeployCommand extends AbstractCommand implements RequiresEnvironment
     		if (self::$deployStatus == self::SUCCEDED && $this->getConfig()->release('enabled', false) == true) {
     			// Execute the Releases
     			Console::output('Starting the <dark_gray>Releasing</dark_gray>');
-    			foreach ($hosts as $hostKey => $host) {
-
-    				// Check if Host has specific configuration
-    				$hostConfig = null;
-    				if (is_array($host)) {
-    					$hostConfig = $host;
-    					$host = $hostKey;
-    				}
-
-    				// Set Host
-    				$this->getConfig()->setHost($host);
-    				$this->getConfig()->setHostConfig($hostConfig);
-
-    				$task = Factory::get('deployment/release', $this->getConfig(), false, AbstractTask::STAGE_DEPLOY);
-
-    				if ($this->runTask($task, 'Releasing on host <purple>' . $host . '</purple> ... ')) {
-    					$completedTasks++;
-    				}
-
-    				// Reset Host Config
-    				$this->getConfig()->setHostConfig(null);
+                $threads = array();
+                foreach ($hosts as $hostKey => $host) {
+                    $thread = SimpleThread::create(array($this, 'runHostReleaseTask'))->run($hostKey, $host);
+                    $threads[$thread->getId()] = $thread;
+    				#$this->runHostReleaseTask($hostKey, $host);
     			}
+
+                foreach($threads as $thread) {
+                    /** @var Thread $thread */
+                    $thread->wait();
+                    $result = $thread->getResult();
+                    self::$failedTasks += $result['failed'];
+                }
+
     			Console::output('Finished the <dark_gray>Releasing</dark_gray>', 1, 3);
 
     			// Execute the Post-Release Tasks
@@ -475,6 +479,13 @@ class DeployCommand extends AbstractCommand implements RequiresEnvironment
     				$this->getConfig()->setHostConfig(null);
     			}
     		}
+
+            try {
+                Thread::cleanAll();
+            }
+            catch(Exception $ex) {
+                Console::output("<red>Unable to clean-up threads. Reason: {$ex->getMessage()}.</red>");
+            }
     	}
     }
 

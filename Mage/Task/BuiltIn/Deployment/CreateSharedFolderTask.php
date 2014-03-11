@@ -57,12 +57,12 @@ class CreateSharedFolderTask extends AbstractTask
         $command = "if [ ! -d $shared ]; then mkdir -p $shared; fi; ";
 
         if(is_string($config['symlink'])) {
-            $command .= "ln -s $shared {$config['symlink']}";
+            $command .= "ln -s $shared {$config['symlink']}; ";
         }
         else {
             foreach($config['symlink'] as $subDir => $symlink) {
                 $command .= "if [ ! -d $shared/$subDir ]; then mkdir -p $shared/$subDir; fi; ";
-                $command .= "ln -s $shared/$subDir $symlink";
+                $command .= "ln -s $shared/$subDir $symlink; ";
             }
         }
 
