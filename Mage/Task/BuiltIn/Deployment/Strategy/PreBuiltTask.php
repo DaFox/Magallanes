@@ -18,7 +18,7 @@ use Mage\Task\Releases\IsReleaseAware;
  *
  * @author Thomas Hamacher <dafox@gmx.com>
  */
-class PreBuiltTarGzTask extends AbstractTask implements IsReleaseAware
+class PreBuiltTask extends AbstractTask implements IsReleaseAware
 {
 	/**
 	 * (non-PHPdoc)
@@ -47,7 +47,8 @@ class PreBuiltTarGzTask extends AbstractTask implements IsReleaseAware
 
         if ($overrideRelease == true) {
             $releaseToOverride = false;
-            $resultFetch = $this->runCommandRemote('ls -ld current | cut -d"/" -f2', $releaseToOverride);
+            $symlink = $this->getConfig()->release('symlink', 'current');
+            $resultFetch = $this->runCommandRemote('ls -ld ' . $symlink . ' | cut -d"/" -f2', $releaseToOverride);
             if ($resultFetch && is_numeric($releaseToOverride)) {
                 $this->getConfig()->setReleaseId($releaseToOverride);
             }

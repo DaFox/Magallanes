@@ -297,8 +297,8 @@ class DeployCommand extends AbstractCommand implements RequiresEnvironment
                 $deployStrategy = 'deployment/strategy/tar-gz';
                 break;
 
-            case 'prebuilttargz':
-                $deployStrategy = 'deployment/strategy/pre-built-tar-gz';
+            case 'prebuilt':
+                $deployStrategy = 'deployment/strategy/pre-built';
                 break;
 
             case 'guess':
@@ -309,6 +309,10 @@ class DeployCommand extends AbstractCommand implements RequiresEnvironment
                     $deployStrategy = 'deployment/strategy/rsync';
                 }
                 break;
+        }
+
+        if($this->getConfig()->release('shared', false) !== false) {
+            array_unshift($tasksToRun, 'deployment/create-shared-folder');
         }
 
         array_unshift($tasksToRun, $deployStrategy);
@@ -376,12 +380,12 @@ class DeployCommand extends AbstractCommand implements RequiresEnvironment
                 Console::output('Started worker <purple>#' .$thread->getId(). '</purple> for host <dark_gray>' . $host . '</dark_gray>');
     		}
 
-            Console::output("", 0, 1);
+            #Console::output("", 0, 2);
 
             foreach($threads as $thread) {
                 /** @var Thread $thread */
                 $thread->wait();
-				Console::output('Stopped worker <purple>#' .$thread->getId(). '</purple>', 1, 3);
+				Console::output('Stopped worker <purple>#' .$thread->getId(). '</purple>', 1, 1);
 				
 				$result = $thread->getResult();
 				self::$failedTasks += $result['failed'];

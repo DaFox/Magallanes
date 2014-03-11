@@ -14,11 +14,11 @@ use Mage\Task\AbstractTask;
 use Mage\Task\Releases\IsReleaseAware;
 
 /**
- * Task for Clearing Cache
+ * Task for creating shared folder and symlinks for releases
  *
- * @author Oscar Reales <oreales@gmail.com>
+ * @author Thomas Hamacher <thomas.hamacher@rtl.de>
  */
-class CreateSharedFolderTask extends AbstractTask implements IsReleaseAware
+class CreateSharedFolderTask extends AbstractTask
 {
 	/**
 	 * (non-PHPdoc)
@@ -30,16 +30,42 @@ class CreateSharedFolderTask extends AbstractTask implements IsReleaseAware
     }
 
     /**
-     * Clears Cache
+     * Creates shared folder and symlinks
+     *
      * @see \Mage\Task\AbstractTask::run()
+     * @return boolean
      */
     public function run()
     {
-        $command  = "if [ ! -d ./shared/logs ]; then mkdir -p ./shared/logs; fi; ";
-		$command .= "if [ ! -d ./shared/spool ]; then mkdir -p ./shared/spool; fi; ";
-		
-        $result = $this->runCommand($command);
+        $defaults = array(
+            'directory' => 'shared',
+            'symlink' => false
+        );
 
-        return $result;
+        $config = $this->getConfig()->release('shared', array());
+
+        if(is_string($config)) {
+            $config = array(
+                'directory' => $config,
+                'symlink' => false
+            );
+        }
+
+        $config = array_merge($defaults, $config);
+        $shared = rtrim($this->getConfig()->deployment('to'), '/') . '/' . $config['directory'];
+
+        $command = "if [ ! -d $shared ]; then mkdir -p $shared; fi; ";
+
+        if(is_string($config['symlink'])) {
+            $command .= "ln -s $shared {$config['symlink']}";
+        }
+        else {
+            foreach($config['symlink'] as $subDir => $symlink) {
+                $command .= "if [ ! -d $shared/$subDir ]; then mkdir -p $shared/$subDir; fi; ";
+                $command .= "ln -s $shared/$subDir $symlink";
+            }
+        }
+
+        return $this->runCommand($command);
     }
 }
