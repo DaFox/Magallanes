@@ -42,8 +42,18 @@ class ReleasesCommand extends AbstractCommand implements RequiresEnvironment
             Console::output('<light_purple>Warning!</light_purple> <dark_gray>No hosts defined, unable to get releases.</dark_gray>', 1, 3);
 
         } else {
-            foreach ($hosts as $host) {
-                $this->getConfig()->setHost($host);
+            foreach ($hosts as $hostKey => $host) {
+                // Check if Host has specific configuration
+				$hostConfig = null;
+				
+				if (is_array($host)) {
+					$hostConfig = $host;
+					$host = $hostKey;
+				}
+
+				// Set Host and Host Specific Config
+				$this->getConfig()->setHost($host);
+				$this->getConfig()->setHostConfig($hostConfig);
 
                 switch ($subcommand) {
                     case 'list':

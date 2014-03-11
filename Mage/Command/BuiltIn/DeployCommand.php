@@ -279,6 +279,7 @@ class DeployCommand extends AbstractCommand implements RequiresEnvironment
         // Prepare Tasks
         $tasks = 0;
         $completedTasks = 0;
+		$failedTasks = 0;
 
         $tasksToRun = $this->getConfig()->getTasks();
 
@@ -324,7 +325,7 @@ class DeployCommand extends AbstractCommand implements RequiresEnvironment
                 if ($this->runTask($task)) {
                     $completedTasks++;
                 } else {
-                    self::$failedTasks++;
+                    $failedTasks++;
                 }
             }
 
@@ -334,11 +335,13 @@ class DeployCommand extends AbstractCommand implements RequiresEnvironment
                 $tasksColor = 'red';
             }
 
-            Console::output('Deployment to <dark_gray>' . $this->getConfig()->getHost() . '</dark_gray> completed: <' . $tasksColor . '>' . $completedTasks . '/' . $tasks . '</' . $tasksColor . '> tasks done.', 1, 3);
+            Console::output('Deployment to <dark_gray>' . $this->getConfig()->getHost() . '</dark_gray> completed: <' . $tasksColor . '>' . $completedTasks . '/' . $tasks . '</' . $tasksColor . '> tasks done.', 1, 1);
         }
 
         // Reset Host Config
         $this->getConfig()->setHostConfig(null);
+		
+		return array('failed' => $failedTasks, 'completed' => $completedTasks);
     }
 
     protected function runDeploymentTasks()
@@ -365,8 +368,12 @@ class DeployCommand extends AbstractCommand implements RequiresEnvironment
     		foreach ($hosts as $hostKey => $host) {
                 $thread = SimpleThread::create(array($this, 'runHostDeploymentTask'))->run($hostKey, $host);
                 $threads[$thread->getId()] = $thread;
+				
+				if (is_array($host)) {
+					$host = $hostKey;
+				}
 
-                Console::output('Started worker #' .$thread->getId(). ' for host <dark_gray>' . $host . '</dark_gray>');
+                Console::output('Started worker <purple>#' .$thread->getId(). '</purple> for host <dark_gray>' . $host . '</dark_gray>');
     		}
 
             Console::output("", 0, 1);
@@ -374,9 +381,19 @@ class DeployCommand extends AbstractCommand implements RequiresEnvironment
             foreach($threads as $thread) {
                 /** @var Thread $thread */
                 $thread->wait();
+				Console::output('Stopped worker <purple>#' .$thread->getId(). '</purple>', 1, 3);
+				
+				$result = $thread->getResult();
+				self::$failedTasks += $result['failed'];
             }
 
-            Thread::cleanAll();
+            try {
+                Thread::cleanAll();
+            }
+            catch(Exception $ex) {
+                Console::output("<red>Unable to clean-up threads. Reason: {$ex->getMessage()}.</red>");
+            }
+
     		$this->endTimeHosts = time();
 
     		if (self::$failedTasks > 0) {
