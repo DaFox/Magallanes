@@ -387,19 +387,23 @@ class DeployCommand extends AbstractCommand implements RequiresEnvironment
     	} else {
     		$this->startTimeHosts = time();
 
+            Console::output('Starting the <dark_gray>Deployment</dark_gray>');
             $threads = array();
     		foreach ($hosts as $hostKey => $host) {
-                $thread = SimpleThread::create(array($this, 'runHostDeploymentTask'))->run($hostKey, $host);
-                $threads[$thread->getId()] = $thread;
-				
-				if (is_array($host)) {
-					$host = $hostKey;
-				}
+                if($this->getConfig()->deployment('parallel', false)) {
+                    $thread = SimpleThread::create(array($this, 'runHostDeploymentTask'))->run($hostKey, $host);
+                    $threads[$thread->getId()] = $thread;
 
-                Console::output('Started worker <purple>#' .$thread->getId(). '</purple> for host <dark_gray>' . $host . '</dark_gray>');
+                    if (is_array($host)) {
+                        $host = $hostKey;
+                    }
+
+                    Console::output('Started worker <purple>#' .$thread->getId(). '</purple> for host <dark_gray>' . $host . '</dark_gray>');
+                }
+                else {
+                    $this->runHostDeploymentTask($hostKey, $host);
+                }
     		}
-
-            #Console::output("", 0, 2);
 
             foreach($threads as $thread) {
                 /** @var Thread $thread */
@@ -424,9 +428,13 @@ class DeployCommand extends AbstractCommand implements RequiresEnvironment
     			Console::output('Starting the <dark_gray>Releasing</dark_gray>');
                 $threads = array();
                 foreach ($hosts as $hostKey => $host) {
-                    $thread = SimpleThread::create(array($this, 'runHostReleaseTask'))->run($hostKey, $host);
-                    $threads[$thread->getId()] = $thread;
-    				#$this->runHostReleaseTask($hostKey, $host);
+                    if($this->getConfig()->release('parallel', false)) {
+                        $thread = SimpleThread::create(array($this, 'runHostReleaseTask'))->run($hostKey, $host);
+                        $threads[$thread->getId()] = $thread;
+                    }
+                    else {
+    				    $this->runHostReleaseTask($hostKey, $host);
+                    }
     			}
 
                 foreach($threads as $thread) {
