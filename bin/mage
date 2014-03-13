@@ -11,16 +11,20 @@
 
 date_default_timezone_set('UTC');
 
-$baseDir = dirname(dirname(__FILE__));
+$baseDir = dirname(__DIR__);
 
 define('MAGALLANES_VERSION', '1.0.0');
 define('MAGALLANES_DIRECTORY', $baseDir);
 
 // Preload
-require_once $baseDir . '/vendor/autoload.php';
-require_once $baseDir . '/Mage/spyc.php';
-require_once $baseDir . '/Mage/Autoload.php';
-spl_autoload_register(array('Mage\\Autoload', 'autoload'));
+if(($autoloader = realpath($baseDir . '/vendor/autoload.php')) === false) {
+    if(($autoloader = realpath($baseDir . '/../../autoload.php')) === false) {
+        throw new Exception("Composer auto-loader not found. Use 'composer update' to install.");
+    }
+}
+
+/** @noinspection PhpIncludeInspection */
+require_once $autoloader;
 
 // Clean arguments
 array_shift($argv);

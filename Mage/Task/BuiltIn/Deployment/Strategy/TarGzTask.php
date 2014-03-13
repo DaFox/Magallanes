@@ -10,7 +10,6 @@
 
 namespace Mage\Task\BuiltIn\Deployment\Strategy;
 
-use Mage\Task\AbstractTask;
 use Mage\Task\Releases\IsReleaseAware;
 
 /**
@@ -18,7 +17,7 @@ use Mage\Task\Releases\IsReleaseAware;
  *
  * @author Andrés Montañez <andres@andresmontanez.com>
  */
-class TarGzTask extends AbstractTask implements IsReleaseAware
+class TarGzTask extends AbstractSynchronizeTask implements IsReleaseAware
 {
 	/**
 	 * (non-PHPdoc)
@@ -43,28 +42,7 @@ class TarGzTask extends AbstractTask implements IsReleaseAware
      */
     public function run()
     {
-        $overrideRelease = $this->getParameter('overrideRelease', false);
-
-        if ($overrideRelease == true) {
-            $releaseToOverride = false;
-            $symlink = $this->getConfig()->release('symlink', 'current');
-            $resultFetch = $this->runCommandRemote('ls -ld ' . $symlink . ' | cut -d"/" -f2', $releaseToOverride);
-            if ($resultFetch && is_numeric($releaseToOverride)) {
-                $this->getConfig()->setReleaseId($releaseToOverride);
-            }
-        }
-
-        $excludes = array(
-            '.git',
-            '.svn',
-            '.mage',
-            '.gitignore',
-    		'.gitkeep',
-    		'nohup.out'
-        );
-
-        // Look for User Excludes
-        $userExcludes = $this->getConfig()->deployment('excludes', array());
+        $this->_overrideReleaseId();
 
         // If we are working with releases
         $deployToDirectory = $this->getConfig()->deployment('to');
@@ -80,9 +58,9 @@ class TarGzTask extends AbstractTask implements IsReleaseAware
         // Create Tar Gz
         $localTarGz = tempnam(sys_get_temp_dir(), 'mage');
         $remoteTarGz = basename($localTarGz);
-        $excludes = array_merge($excludes, $userExcludes);
+
         $excludeCmd = '';
-        foreach ($excludes as $excludeFile) {
+        foreach ($this->_getExcludes() as $excludeFile) {
             $excludeCmd .= ' --exclude=' . $excludeFile;
         }
 

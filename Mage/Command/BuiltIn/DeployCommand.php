@@ -408,8 +408,8 @@ class DeployCommand extends AbstractCommand implements RequiresEnvironment
             foreach($threads as $thread) {
                 /** @var Thread $thread */
                 $thread->wait();
-				#Console::output('Stopped worker <purple>#' .$thread->getId(). '</purple>', 1, 1);
-				
+                $thread->sendSignalToChild(SIGKILL);
+
 				$result = $thread->getResult();
 				self::$failedTasks += $result['failed'];
             }
@@ -440,6 +440,8 @@ class DeployCommand extends AbstractCommand implements RequiresEnvironment
                 foreach($threads as $thread) {
                     /** @var Thread $thread */
                     $thread->wait();
+                    $thread->sendSignalToChild(SIGKILL);
+
                     $result = $thread->getResult();
                     self::$failedTasks += $result['failed'];
                 }

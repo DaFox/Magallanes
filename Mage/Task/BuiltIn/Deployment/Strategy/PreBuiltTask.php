@@ -10,15 +10,14 @@
 
 namespace Mage\Task\BuiltIn\Deployment\Strategy;
 
-use Mage\Task\AbstractTask;
 use Mage\Task\Releases\IsReleaseAware;
 
 /**
  * Task for Sync the Local Tarball to the Remote Hosts
  *
- * @author Thomas Hamacher <dafox@gmx.com>
+ * @author Thomas Hamacher <th.hamacher@gmail.com>
  */
-class PreBuiltTask extends AbstractTask implements IsReleaseAware
+class PreBuiltTask extends AbstractSynchronizeTask implements IsReleaseAware
 {
 	/**
 	 * (non-PHPdoc)
@@ -43,16 +42,7 @@ class PreBuiltTask extends AbstractTask implements IsReleaseAware
      */
     public function run()
     {
-        $overrideRelease = $this->getParameter('overrideRelease', false);
-
-        if ($overrideRelease == true) {
-            $releaseToOverride = false;
-            $symlink = $this->getConfig()->release('symlink', 'current');
-            $resultFetch = $this->runCommandRemote('ls -ld ' . $symlink . ' | cut -d"/" -f2', $releaseToOverride);
-            if ($resultFetch && is_numeric($releaseToOverride)) {
-                $this->getConfig()->setReleaseId($releaseToOverride);
-            }
-        }
+        $this->_overrideReleaseId();
 
 
         // If we are working with releases

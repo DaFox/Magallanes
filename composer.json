@@ -11,5 +11,9 @@
     },
     "bin": [
         "bin/mage"
-    ]
+    ],
+    "autoload": {
+        "files": ["Mage/spyc.php"],
+        "classmap": ["Mage"]
+    }
 }
