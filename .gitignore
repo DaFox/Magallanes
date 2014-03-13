@@ -2,6 +2,8 @@
 .settings/*
 .project
 .buildpath
+.idea
+.idea/*
 
 # OS generated files # // GitHub Recommendation
 ######################

@@ -11,12 +11,11 @@
 namespace Mage\Task\BuiltIn\Deployment;
 
 use Mage\Task\AbstractTask;
-use Mage\Task\Releases\IsReleaseAware;
 
 /**
  * Task for creating shared folder and symlinks for releases
  *
- * @author Thomas Hamacher <thomas.hamacher@rtl.de>
+ * @author Thomas Hamacher <th.hamacher@gmail.com>
  */
 class CreateSharedFolderTask extends AbstractTask
 {
